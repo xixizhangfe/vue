@@ -34,6 +34,7 @@ if (process.env.NODE_ENV !== 'production') {
     )
   }
 
+  // Proxy是js的对象，es6里可以通过new Proxy()使用
   const hasProxy =
     typeof Proxy !== 'undefined' && isNative(Proxy)
 
@@ -82,6 +83,7 @@ if (process.env.NODE_ENV !== 'production') {
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler
+      // Proxy具体用法可以参考http://es6.ruanyifeng.com/#docs/proxy
       vm._renderProxy = new Proxy(vm, handlers)
     } else {
       vm._renderProxy = vm
