@@ -25,6 +25,8 @@ const ALWAYS_NORMALIZE = 2
 
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
+// TODO: 输入参数的含义
+// tag: html的标签名，如div
 export function createElement (
   context: Component,
   tag: any,
@@ -34,6 +36,7 @@ export function createElement (
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
   if (Array.isArray(data) || isPrimitive(data)) {
+    // TODO: 这么交换意义何在？并且后面又给normalizationType赋值了
     normalizationType = children
     children = data
     data = undefined
@@ -51,6 +54,7 @@ export function _createElement (
   children?: any,
   normalizationType?: number
 ): VNode | Array<VNode> {
+  // TODO: __ob__是什么
   if (isDef(data) && isDef((data: any).__ob__)) {
     process.env.NODE_ENV !== 'production' && warn(
       `Avoid using observed data object as vnode data: ${JSON.stringify(data)}\n` +
@@ -60,6 +64,7 @@ export function _createElement (
     return createEmptyVNode()
   }
   // object syntax in v-bind
+  // TODO: data.is又是什么？猜测是：动态组件
   if (isDef(data) && isDef(data.is)) {
     tag = data.is
   }
@@ -68,9 +73,11 @@ export function _createElement (
     return createEmptyVNode()
   }
   // warn against non-primitive key
+  // 如果key不是原始值，则警告
   if (process.env.NODE_ENV !== 'production' &&
     isDef(data) && isDef(data.key) && !isPrimitive(data.key)
   ) {
+    // TODO: __WEEX__又是啥？
     if (!__WEEX__ || !('@binding' in data.key)) {
       warn(
         'Avoid using non-primitive value as key, ' +
@@ -80,6 +87,7 @@ export function _createElement (
     }
   }
   // support single function children as default scoped slot
+  // TODO: single function children是什么
   if (Array.isArray(children) &&
     typeof children[0] === 'function'
   ) {
@@ -98,6 +106,8 @@ export function _createElement (
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
     if (config.isReservedTag(tag)) {
       // platform built-in elements
+      // v-on只能用在组件上
+      // TODO: nativeOn是什么？
       if (process.env.NODE_ENV !== 'production' && isDef(data) && isDef(data.nativeOn)) {
         warn(
           `The .native modifier for v-on is only valid on components but it was used on <${tag}>.`,
@@ -109,6 +119,7 @@ export function _createElement (
         undefined, undefined, context
       )
     } else if ((!data || !data.pre) && isDef(Ctor = resolveAsset(context.$options, 'components', tag))) {
+      // TODO: data.pre是什么
       // component
       vnode = createComponent(Ctor, data, context, children, tag)
     } else {
@@ -121,12 +132,14 @@ export function _createElement (
       )
     }
   } else {
+    // TODO: 什么情况下tag不是一个string
     // direct component options / constructor
     vnode = createComponent(tag, data, context, children)
   }
   if (Array.isArray(vnode)) {
     return vnode
   } else if (isDef(vnode)) {
+    // TODO: 命名空间的作用是什么
     if (isDef(ns)) applyNS(vnode, ns)
     if (isDef(data)) registerDeepBindings(data)
     return vnode
