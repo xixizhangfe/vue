@@ -19,8 +19,10 @@ export function createCompilerCreator (baseCompile: Function): Function {
       }
 
       if (options) {
+        // TODO: 如果非生产环境，且存在outputSourceRange，则需要重新定义warn
         if (process.env.NODE_ENV !== 'production' && options.outputSourceRange) {
           // $flow-disable-line
+          // 获取缩进的字符数
           const leadingSpaceLength = template.match(/^\s*/)[0].length
 
           warn = (msg, range, tip) => {
@@ -37,6 +39,7 @@ export function createCompilerCreator (baseCompile: Function): Function {
           }
         }
         // merge custom modules
+        // TODO: custom modules是什么
         if (options.modules) {
           finalOptions.modules =
             (baseOptions.modules || []).concat(options.modules)

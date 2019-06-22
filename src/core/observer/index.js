@@ -141,6 +141,7 @@ export function defineReactive (
 ) {
   const dep = new Dep()
 
+  // 获取属性描述对象，如: {value: "test", writable: true, enumerable: true, configurable: true}
   const property = Object.getOwnPropertyDescriptor(obj, key)
   if (property && property.configurable === false) {
     return

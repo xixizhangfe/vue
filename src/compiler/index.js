@@ -23,3 +23,11 @@ export const createCompiler = createCompilerCreator(function baseCompile (
     staticRenderFns: code.staticRenderFns
   }
 })
+
+/*
+  baseCompile是实际执行编译的，在调用compile时，执行的是baseCompile。
+  baseCompile包含两部分：
+  1. 生成ast：这部分先不看
+  2. 根据ast生成code，code包含render、staticRenderFns函数
+
+*/

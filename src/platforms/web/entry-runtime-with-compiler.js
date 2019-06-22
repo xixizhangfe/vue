@@ -15,13 +15,16 @@ const idToTemplate = cached(id => {
 })
 
 const mount = Vue.prototype.$mount
+// hydrating是ssr需要用到的，表示强制使用激活模式，可参考https://ssr.vuejs.org/zh/guide/hydration.html
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean
 ): Component {
+  // query方法：判断el，如果是string，通过querySelector获取元素；否则，认为el已经是个元素，直接返回el
   el = el && query(el)
 
   /* istanbul ignore if */
+  // 要挂载的el不能是html或body
   if (el === document.body || el === document.documentElement) {
     process.env.NODE_ENV !== 'production' && warn(
       `Do not mount Vue to <html> or <body> - mount to normal elements instead.`
@@ -33,8 +36,11 @@ Vue.prototype.$mount = function (
   // resolve template/el and convert to render function
   if (!options.render) {
     let template = options.template
+    // 判断template、el是否存在并生成render函数的流程，可以参考官方生命周期图示https://cn.vuejs.org/v2/guide/instance.html#%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E5%9B%BE%E7%A4%BA
     if (template) {
       if (typeof template === 'string') {
+        // 如果template以 # 开头，表明是个id。
+        // TODO: 如果不以 # 开头，那会怎么样
         if (template.charAt(0) === '#') {
           template = idToTemplate(template)
           /* istanbul ignore if */
@@ -46,6 +52,7 @@ Vue.prototype.$mount = function (
           }
         }
       } else if (template.nodeType) {
+        // TODO: 通过nodeType能得到啥
         template = template.innerHTML
       } else {
         if (process.env.NODE_ENV !== 'production') {
@@ -86,6 +93,7 @@ Vue.prototype.$mount = function (
  * Get outerHTML of elements, taking care
  * of SVG elements in IE as well.
  */
+// TODO: 为什么要用outerHTML
 function getOuterHTML (el: Element): string {
   if (el.outerHTML) {
     return el.outerHTML

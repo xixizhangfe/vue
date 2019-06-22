@@ -18,6 +18,33 @@ type PropOptions = {
   validator: ?Function
 };
 
+/**
+ * 根据例子分析会更清楚：
+ * eg:
+ * propOptions = {
+ *  isBoy: {
+ *    type: Boolean,
+ *    default: false.
+ *    required: true,
+ *  },
+ *  name: {
+ *    type: String,
+ *    default: ''.
+ *    required: true,
+ *  },
+ *  age: {
+ *    type: [Number, String],
+ *    default: 0.
+ *    required: true,
+ *  }
+ * }
+ * propsData = {
+ *  isBoy: false,
+ *  name: 'zhangxixi',
+ *  age: 18
+ * }
+ *  那么这里的key可以是isBoy、name、age
+ */
 export function validateProp (
   key: string,
   propOptions: Object,
@@ -25,9 +52,12 @@ export function validateProp (
   vm?: Component
 ): any {
   const prop = propOptions[key]
+  // TODO: 使用hasOwn检测，说明props的key可能会存在原型链上
+  // 那么问题来了，到底会从哪里继承props呢
   const absent = !hasOwn(propsData, key)
   let value = propsData[key]
   // boolean casting
+  // 获取 Boolean 在 prop.type 的位置
   const booleanIndex = getTypeIndex(Boolean, prop.type)
   if (booleanIndex > -1) {
     if (absent && !hasOwn(prop, 'default')) {
@@ -37,6 +67,7 @@ export function validateProp (
       // boolean has higher priority
       const stringIndex = getTypeIndex(String, prop.type)
       if (stringIndex < 0 || booleanIndex < stringIndex) {
+        // TODO: 为什么要转成true，而不是false
         value = true
       }
     }
@@ -56,6 +87,7 @@ export function validateProp (
     // skip validation for weex recycle-list child component props
     !(__WEEX__ && isObject(value) && ('@binding' in value))
   ) {
+    // 断言传给prop的值是否符合条件，不符合则报错。
     assertProp(prop, key, value, vm, absent)
   }
   return value
@@ -115,12 +147,23 @@ function assertProp (
     return
   }
   let type = prop.type
+  // 允许我们在写props时直接写 type: true或者type: false，这样就会跳过类型检查
+  /* 比如
+    {
+      name: {
+        type: true
+      }
+    }
+  */
   let valid = !type || type === true
+  // expectedTypes会在报错的时候用到
   const expectedTypes = []
   if (type) {
     if (!Array.isArray(type)) {
       type = [type]
     }
+    // MARK: 这个写法不错，把valid放在for循环的判断里，如果valid为true，则中止循环
+    // 我们平时写代码有很多场景需要循环一个数组，判断是否有满足条件的，这时候就可以这样写。
     for (let i = 0; i < type.length && !valid; i++) {
       const assertedType = assertType(value, type[i])
       expectedTypes.push(assertedType.expectedType || '')
@@ -158,6 +201,7 @@ function assertType (value: any, type: Function): {
     const t = typeof value
     valid = t === expectedType.toLowerCase()
     // for primitive wrapper objects
+    // 比如 value = new Number(1), 此时 t = typeof value = 'object'
     if (!valid && t === 'object') {
       valid = value instanceof type
     }
@@ -179,6 +223,13 @@ function assertType (value: any, type: Function): {
  * because a simple equality check will fail when running
  * across different vms / iframes.
  */
+/**
+ * eg: type是Boolean, Boolean.toString结果是:
+ * "function Boolean() { [native code] }"
+ * /^\s*function (\w+)/这个正则匹配的结果是：
+ * ["function Boolean", "Boolean", index: 0, input: "function Boolean() { [native code] }", groups: undefined]
+ * 所以match[1]得到的就是 "Boolean"这个字符串
+ */
 function getType (fn) {
   const match = fn && fn.toString().match(/^\s*function (\w+)/)
   return match ? match[1] : ''
@@ -188,6 +239,9 @@ function isSameType (a, b) {
   return getType(a) === getType(b)
 }
 
+// 写props时，会写一个type属性，比如type: Boolean, 或者 type: [Boolean, Array]
+// 这个type对应的参数里的expectedTypes
+// 这个函数是根据输入的type，获取它在expectedTypes里的位置
 function getTypeIndex (type, expectedTypes): number {
   if (!Array.isArray(expectedTypes)) {
     return isSameType(expectedTypes, type) ? 0 : -1
