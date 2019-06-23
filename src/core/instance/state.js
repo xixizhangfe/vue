@@ -70,6 +70,7 @@ function initProps (vm: Component, propsOptions: Object) {
   const isRoot = !vm.$parent
   // root instance props should be converted
   if (!isRoot) {
+    // 把shouldObserve设为false
     toggleObserving(false)
   }
   for (const key in propsOptions) {
@@ -85,6 +86,7 @@ function initProps (vm: Component, propsOptions: Object) {
           vm
         )
       }
+      // 不允许为props设置值，保证单向数据流
       defineReactive(props, key, value, () => {
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
@@ -102,10 +104,13 @@ function initProps (vm: Component, propsOptions: Object) {
     // static props are already proxied on the component's prototype
     // during Vue.extend(). We only need to proxy props defined at
     // instantiation here.
+    // 代理props到vm上，允许我们通过this[key]访问到props里的属性。
+    // 假设我们的props里定义了name，当我们通过this.name访问时，其实访问的就是this._props[key]
     if (!(key in vm)) {
       proxy(vm, `_props`, key)
     }
   }
+  // 把shouldObserve设为true
   toggleObserving(true)
 }
 
@@ -123,12 +128,14 @@ function initData (vm: Component) {
     )
   }
   // proxy data on instance
+  // 代理data到vue实例上，这样通过this.[key]就能访问到this._data[key]
   const keys = Object.keys(data)
   const props = vm.$options.props
   const methods = vm.$options.methods
   let i = keys.length
   while (i--) {
     const key = keys[i]
+    // 检查methods和props中是否已经定义过了，会先检查methods，再检查props
     if (process.env.NODE_ENV !== 'production') {
       if (methods && hasOwn(methods, key)) {
         warn(
@@ -336,6 +343,7 @@ export function stateMixin (Vue: Class<Component>) {
       warn(`$props is readonly.`, this)
     }
   }
+  // TODO: 为什么这里用Object.defineProperty，下面的$set，$delete不需要
   Object.defineProperty(Vue.prototype, '$data', dataDef)
   Object.defineProperty(Vue.prototype, '$props', propsDef)
 

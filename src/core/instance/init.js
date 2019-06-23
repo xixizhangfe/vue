@@ -66,6 +66,18 @@ export function initMixin (Vue: Class<Component>) {
       measure(`vue ${vm._name} init`, startTag, endTag)
     }
 
+    /*
+      我们在main.js里实例化Vue时，可能会在options里传入el，也可能是写$mount方法
+      new Vue({
+        el: '#app'
+      })
+      或者
+      new Vue({
+
+      }).$mount('#app')
+
+      所以如果有el，说明没有$mount，则这里需要执行$mount。如果没有el，说明是我们自己手动执行的$mount。
+    */
     if (vm.$options.el) {
       vm.$mount(vm.$options.el)
     }

@@ -41,8 +41,10 @@ export class Observer {
 
   constructor (value: any) {
     this.value = value
+    // 实例化被观察者
     this.dep = new Dep()
     this.vmCount = 0
+    // 根据__ob__属性判断是否已经被观察了
     def(value, '__ob__', this)
     if (Array.isArray(value)) {
       if (hasProto) {
@@ -107,6 +109,7 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
+// 创建一个观察者对象
 export function observe (value: any, asRootData: ?boolean): Observer | void {
   if (!isObject(value) || value instanceof VNode) {
     return
@@ -139,6 +142,7 @@ export function defineReactive (
   customSetter?: ?Function,
   shallow?: boolean
 ) {
+  // 这里再实例一次被观察者对象
   const dep = new Dep()
 
   // 获取属性描述对象，如: {value: "test", writable: true, enumerable: true, configurable: true}
@@ -161,6 +165,7 @@ export function defineReactive (
     get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
       if (Dep.target) {
+        // 把this添加到给观察者的依赖中
         dep.depend()
         if (childOb) {
           childOb.dep.depend()
@@ -189,6 +194,7 @@ export function defineReactive (
         val = newVal
       }
       childOb = !shallow && observe(newVal)
+      // 通知它的订阅者（即观察者）更新
       dep.notify()
     }
   })
