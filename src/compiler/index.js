@@ -12,6 +12,7 @@ export const createCompiler = createCompilerCreator(function baseCompile (
   template: string,
   options: CompilerOptions
 ): CompiledResult {
+  // options包含platforms/web/compiler/里的directives、modules
   const ast = parse(template.trim(), options)
   if (options.optimize !== false) {
     optimize(ast, options)

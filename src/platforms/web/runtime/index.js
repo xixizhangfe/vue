@@ -27,13 +27,18 @@ Vue.config.getTagNamespace = getTagNamespace
 Vue.config.isUnknownElement = isUnknownElement
 
 // install platform runtime directives & components
+// 定义指令v-model、v-show
 extend(Vue.options.directives, platformDirectives)
+// 定义是组件transition和transition-group
+// 另外一个keep-alive组件，是在core/global-api/index.js定义的
 extend(Vue.options.components, platformComponents)
 
 // install platform patch function
 Vue.prototype.__patch__ = inBrowser ? patch : noop
 
 // public mount method
+// 会发现源码里有些属性/方法，有的以_开头，有的以$开头
+// 以$开头的是官方想暴露给我们的，_开头的是vue源码内部使用的，不想对外暴露，虽然我们也能访问到
 Vue.prototype.$mount = function (
   el?: string | Element,
   hydrating?: boolean

@@ -44,10 +44,18 @@ const componentVNodeHooks = {
       const mountedNode: any = vnode // work around flow
       componentVNodeHooks.prepatch(mountedNode, mountedNode)
     } else {
+      // 创建一个实例，这个过程会再走一次Vue的实例化过程，也就是会执行_init函数
+      // activeInstance是当前上下文的Vue实例，在instance/lifecycle.js里定义的
       const child = vnode.componentInstance = createComponentInstanceForVnode(
         vnode,
         activeInstance
       )
+      // 执行_init函数时，由于组件没有$options.el，所以不会执行vm.$mount函数
+      // 而是在这里执行$mount过程
+      // 不考虑服务端渲染情况，这里执行的是child.$mount(undefined, false)
+      // 最终执行的是mountComponent（在instance/lifecycle.js里）
+      // 进而执行vm._render()（在instance/render.js里），这个过程会设置$vnode，这是父组件的渲染，vnode和$vnode是一种复父子关系
+      // 最后执行vm._update()（在instance/lifecycle.js里）
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
@@ -109,9 +117,12 @@ export function createComponent (
     return
   }
 
+  // baseCtor就是Vue，在core/global-api/index.js里定义的
   const baseCtor = context.$options._base
 
   // plain options object: turn it into a constructor
+  // Vue.extend在core/global-api/extend.js里定义的
+  // Ctor是一个Vue的子类，在extend时初始化了props、computed
   if (isObject(Ctor)) {
     Ctor = baseCtor.extend(Ctor)
   }
@@ -187,6 +198,7 @@ export function createComponent (
 
   // return a placeholder vnode
   const name = Ctor.options.name || tag
+  // 得到vnode
   const vnode = new VNode(
     `vue-component-${Ctor.cid}${name ? `-${name}` : ''}`,
     data, undefined, undefined, undefined, context,
@@ -210,7 +222,7 @@ export function createComponentInstanceForVnode (
   parent: any, // activeInstance in lifecycle state
 ): Component {
   const options: InternalComponentOptions = {
-    _isComponent: true,
+    _isComponent: true, // 表示是component，在初始化Vue时会用它做判断
     _parentVnode: vnode,
     parent
   }
@@ -220,6 +232,9 @@ export function createComponentInstanceForVnode (
     options.render = inlineTemplate.render
     options.staticRenderFns = inlineTemplate.staticRenderFns
   }
+  // vnode.componentOptions.Ctor就是createComponent函数中的Ctor
+  // 而Ctor又是基于Vue类的扩展，new Ctor实例化过程，就会在执行一遍Vue的初始化过程
+  // 也就是说会执行core/instance/init.js里的_init方法
   return new vnode.componentOptions.Ctor(options)
 }
 

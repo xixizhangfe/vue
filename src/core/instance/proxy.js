@@ -80,6 +80,8 @@ if (process.env.NODE_ENV !== 'production') {
     if (hasProxy) {
       // determine which proxy handler to use
       const options = vm.$options
+      // _withStripped只在单元测试里定义了，其他地方默认为false
+      // 所以handlers是hasHandler
       const handlers = options.render && options.render._withStripped
         ? getHandler
         : hasHandler

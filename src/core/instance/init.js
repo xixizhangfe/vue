@@ -30,13 +30,21 @@ export function initMixin (Vue: Class<Component>) {
     // a flag to avoid this being observed
     vm._isVue = true
     // merge options
+    // _isComponent表示是当前要处理的是一个component，这是在vdom/create-components.js里createComponentInstanceForVnode函数中定义的
     if (options && options._isComponent) {
       // optimize internal component instantiation
       // since dynamic options merging is pretty slow, and none of the
       // internal component options needs special treatment.
+      // initInternalComponent只是简单的对象赋值，不涉及递归、合并策略等复杂问题
       initInternalComponent(vm, options)
     } else {
+      // mergeOptions会涉及递归、合并策略等复杂问题，比较消耗性能
+      // resolveConstructorOptions(vm.constructor)得到的是Vue默认的options
+      // options是用户传入的
+      // 就是把自定义配置和默认配置合并
       vm.$options = mergeOptions(
+        // vm.constructor就是function Vue() {this._init()}
+        // 是在instance/index.js里定义的
         resolveConstructorOptions(vm.constructor),
         options || {},
         vm
@@ -44,6 +52,7 @@ export function initMixin (Vue: Class<Component>) {
     }
     /* istanbul ignore else */
     if (process.env.NODE_ENV !== 'production') {
+      // 在非生产环境下对has方法做拦截
       initProxy(vm)
     } else {
       vm._renderProxy = vm
@@ -78,6 +87,7 @@ export function initMixin (Vue: Class<Component>) {
 
       所以如果有el，说明没有$mount，则这里需要执行$mount。如果没有el，说明是我们自己手动执行的$mount。
     */
+    // 如果是组件，也不会执行下面的函数。组件会自己接管了$mount过程，见vdom/creat-component.js里componentVNodeHooks中init hook
     if (vm.$options.el) {
       vm.$mount(vm.$options.el)
     }
@@ -87,6 +97,7 @@ export function initMixin (Vue: Class<Component>) {
 export function initInternalComponent (vm: Component, options: InternalComponentOptions) {
   const opts = vm.$options = Object.create(vm.constructor.options)
   // doing this because it's faster than dynamic enumeration.
+  // 这里是把createComponentInstanceForVnode函数（vdom/create-component.js里）中传入的几个参数合并到$options里
   const parentVnode = options._parentVnode
   opts.parent = options.parent
   opts._parentVnode = parentVnode

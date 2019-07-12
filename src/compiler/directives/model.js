@@ -37,6 +37,9 @@ export function genAssignmentCode (
   value: string,
   assignment: string
 ): string {
+  // parseModel是处理v-model="obj"、v-model="obj.val"、v-model="obj[val]"
+  // 得到的res中，exp就是obj，key是val或者null
+  // res = {exp: 'obj', key: 'val'}
   const res = parseModel(value)
   if (res.key === null) {
     return `${value}=${assignment}`
@@ -67,6 +70,8 @@ type ModelParseResult = {
   key: string | null
 }
 
+// 处理v-model="obj"、v-model="obj.val"、v-model="obj[val]"
+// exp就是obj，key是val或者null
 export function parseModel (val: string): ModelParseResult {
   // Fix https://github.com/vuejs/vue/pull/7730
   // allow v-model="obj.val " (trailing whitespace)

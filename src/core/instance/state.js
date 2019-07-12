@@ -115,6 +115,9 @@ function initProps (vm: Component, propsOptions: Object) {
 }
 
 function initData (vm: Component) {
+  // 初始化数据,其实一方面把data的内容代理到vm实例上,
+  // 另一方面改造data,变成reactive的
+  // 即get时触发依赖收集(将订阅者加入Dep实例的subs数组中),set时notify订阅者
   let data = vm.$options.data
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
@@ -171,6 +174,7 @@ export function getData (data: Function, vm: Component): any {
   }
 }
 
+// watcher里会根据lazy的值做不同处理
 const computedWatcherOptions = { lazy: true }
 
 function initComputed (vm: Component, computed: Object) {
@@ -179,6 +183,7 @@ function initComputed (vm: Component, computed: Object) {
   // computed properties are just getters during SSR
   const isSSR = isServerRendering()
 
+  //为每个computed的属性都创建一个内部watcher，并存在vm._computedWatchers里
   for (const key in computed) {
     const userDef = computed[key]
     const getter = typeof userDef === 'function' ? userDef : userDef.get
@@ -191,6 +196,7 @@ function initComputed (vm: Component, computed: Object) {
 
     if (!isSSR) {
       // create internal watcher for the computed property.
+      // 为计算属性创建一个内部watcher，与普通watcher不同的是，options里的lazy为true(computedWatcherOptions里有lazy属性)
       watchers[key] = new Watcher(
         vm,
         getter || noop,
@@ -202,9 +208,11 @@ function initComputed (vm: Component, computed: Object) {
     // component-defined computed properties are already defined on the
     // component prototype. We only need to define computed properties defined
     // at instantiation here.
+    // TODO: ????
     if (!(key in vm)) {
       defineComputed(vm, key, userDef)
     } else if (process.env.NODE_ENV !== 'production') {
+      // computed定义的属性不能在data和props里
       if (key in vm.$data) {
         warn(`The computed property "${key}" is already defined in data.`, vm)
       } else if (vm.$options.props && key in vm.$options.props) {
@@ -246,12 +254,22 @@ export function defineComputed (
 }
 
 function createComputedGetter (key) {
+  // 这个函数才是我们在获取computed属性时真正的getter
   return function computedGetter () {
     const watcher = this._computedWatchers && this._computedWatchers[key]
     if (watcher) {
+      // dirty的意思是依赖的数据有变化，需要重新计算，计算是通过evaluate函数得到的，计算后会把dirty变为false
       if (watcher.dirty) {
+        // evaluate就两行，执行get，设置dirty为false
+        // this.value = this.get()
+        // this.dirty = false
         watcher.evaluate()
       }
+      // 比如我们的计算属性a，依赖于b和c，假设其中b也是一个computed属性，a: () => {return b + c}
+      // 在上面执行watcher.evaluate()时，里面this.get()会通过pushTarget把Dep.target设置为当前watcher
+      // 然后执行this.getter()，这里this.getter就是() => {return b + c}，而在获取b和c时，分别会去执行b和c的getter
+      // 由于b也是computed属性，所以会再次进入到这里（当然此时的watcher就是b的watcher），而此时Dep.target是有值的，它就是a的watcher。
+      // 然后通过watcher.depend()，就可以把b的依赖加入到a这个watcher的依赖里。
       if (Dep.target) {
         watcher.depend()
       }

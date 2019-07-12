@@ -19,10 +19,12 @@ export function initAssetRegisters (Vue: GlobalAPI) {
         if (process.env.NODE_ENV !== 'production' && type === 'component') {
           validateComponentName(id)
         }
+        // 注册全局组件，Vue.component('aaa', ....)
         if (type === 'component' && isPlainObject(definition)) {
           definition.name = definition.name || id
           definition = this.options._base.extend(definition)
         }
+        // 注册全局指令，Vue.directive
         if (type === 'directive' && typeof definition === 'function') {
           definition = { bind: definition, update: definition }
         }

@@ -71,6 +71,63 @@ export function createPatchFunction (backend) {
   let i, j
   const cbs = {}
 
+  // modules的值是：
+  /*
+    [
+      attrs: {
+        create: updateAttrs,
+        update: updateAttrs
+      },
+      klass: {
+        create: updateClass,
+        update: updateClass
+      },
+      events: {
+        create: updateDOMListeners,
+        update: updateDOMListeners
+      },
+      domProps: {
+        create: updateDOMProps,
+        update: updateDOMProps
+      },
+      style: {
+        create: updateStyle,
+        update: updateStyle
+      },
+      transition: {
+        create: _enter,
+        activate: _enter,
+        remove (vnode: VNode, rm: Function) {
+          if (vnode.data.show !== true) {
+            leave(vnode, rm)
+          } else {
+            rm()
+          }
+        }
+      },
+      ref: {
+        create (_: any, vnode: VNodeWithData) {
+          registerRef(vnode)
+        },
+        update (oldVnode: VNodeWithData, vnode: VNodeWithData) {
+          if (oldVnode.data.ref !== vnode.data.ref) {
+            registerRef(oldVnode, true)
+            registerRef(vnode)
+          }
+        },
+        destroy (vnode: VNodeWithData) {
+          registerRef(vnode, true)
+        }
+      },
+      directives: {
+        create: updateDirectives,
+        update: updateDirectives,
+        destroy: function unbindDirectives (vnode: VNodeWithData) {
+          updateDirectives(vnode, emptyNode)
+        }
+      }
+    ]
+  */
   const { modules, nodeOps } = backend
 
   for (i = 0; i < hooks.length; ++i) {
@@ -140,7 +197,9 @@ export function createPatchFunction (backend) {
       vnode = ownerArray[index] = cloneVNode(vnode)
     }
 
+    // createChildren里会递归执行createElm，这时候传入的nested为true
     vnode.isRootInsert = !nested // for transition enter check
+    // 如果createComponent为true，就直接返回
     if (createComponent(vnode, insertedVnodeQueue, parentElm, refElm)) {
       return
     }
@@ -211,7 +270,10 @@ export function createPatchFunction (backend) {
     let i = vnode.data
     if (isDef(i)) {
       const isReactivated = isDef(vnode.componentInstance) && i.keepAlive
+      // 这里实现比较巧妙，在判断是否定义的同时，把变量做了改变
+      // 最终得到的i是i.hook.init，这个init是在create-component.js里installComponentHooks函数会通过mergeHook把init放进vnode.data里
       if (isDef(i = i.hook) && isDef(i = i.init)) {
+        // 这里其实是执行init hook
         i(vnode, false /* hydrating */)
       }
       // after calling the init hook, if the vnode is a child component
@@ -287,6 +349,7 @@ export function createPatchFunction (backend) {
         checkDuplicateKeys(children)
       }
       for (let i = 0; i < children.length; ++i) {
+        // 把父元素的容器vnode.elm传进去
         createElm(children[i], insertedVnodeQueue, vnode.elm, null, true, children, i)
       }
     } else if (isPrimitive(vnode.text)) {
@@ -698,6 +761,7 @@ export function createPatchFunction (backend) {
   }
 
   return function patch (oldVnode, vnode, hydrating, removeOnly) {
+    // 如果没有vnode，但有oldVnode，则调用销毁钩子
     if (isUndef(vnode)) {
       if (isDef(oldVnode)) invokeDestroyHook(oldVnode)
       return
@@ -713,9 +777,11 @@ export function createPatchFunction (backend) {
     } else {
       const isRealElement = isDef(oldVnode.nodeType)
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
+        // 新旧节点相同
         // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
       } else {
+        // 新旧节点不同
         if (isRealElement) {
           // mounting to a real element
           // check if this is server-rendered content and if we can perform
@@ -743,6 +809,7 @@ export function createPatchFunction (backend) {
           oldVnode = emptyNodeAt(oldVnode)
         }
 
+        // 第一步：以旧节点为参考节点，创建新节点，并插入到旧节点的父元素中
         // replacing existing element
         const oldElm = oldVnode.elm
         const parentElm = nodeOps.parentNode(oldElm)
@@ -758,6 +825,7 @@ export function createPatchFunction (backend) {
           nodeOps.nextSibling(oldElm)
         )
 
+        // 第二步：更新父的占位符
         // update parent placeholder node element, recursively
         if (isDef(vnode.parent)) {
           let ancestor = vnode.parent
@@ -788,6 +856,7 @@ export function createPatchFunction (backend) {
           }
         }
 
+        // 第三步：销毁旧节点
         // destroy old node
         if (isDef(parentElm)) {
           removeVnodes([oldVnode], 0, 0)

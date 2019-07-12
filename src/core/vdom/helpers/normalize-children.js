@@ -15,6 +15,11 @@ import { isFalse, isTrue, isDef, isUndef, isPrimitive } from 'shared/util'
 // normalization is needed - if any child is an Array, we flatten the whole
 // thing with Array.prototype.concat. It is guaranteed to be only 1-level deep
 // because functional components already normalize their own children.
+
+// simpleNormalizeChildren调用场景是render函数是编译生成的。
+// 理论上编译生成的children都是VNode类型的，但有一个例外
+// 就是函数式组件返回的是一个数组而不是一个根节点
+// 这种情况下，可以通过Array.prototype.concat把数组打平，保证深度只有一层
 export function simpleNormalizeChildren (children: any) {
   for (let i = 0; i < children.length; i++) {
     if (Array.isArray(children[i])) {
@@ -28,6 +33,11 @@ export function simpleNormalizeChildren (children: any) {
 // e.g. <template>, <slot>, v-for, or when the children is provided by user
 // with hand-written render functions / JSX. In such cases a full normalization
 // is needed to cater to all possible types of children values.
+
+// normalizeChildren调用场景有2种：
+// 一是children是用户通过render函数手写的
+// Vue从接口层面允许用户把children写成基础类型，来创建单个简单的文本节点，这时会调用createTextVNode
+// 另一个场景是，当编译slot、v-for的时候会产生嵌套数组的情况，此时调用normalizeArrayChildren
 export function normalizeChildren (children: any): ?Array<VNode> {
   return isPrimitive(children)
     ? [createTextVNode(children)]
@@ -40,6 +50,12 @@ function isTextNode (node): boolean {
   return isDef(node) && isDef(node.text) && isFalse(node.isComment)
 }
 
+// 主要逻辑是遍历children，获得单个节点c，然后对c的类型做判断
+// 如果c是数组，则递归调用normalizeArrayChildren
+// 如果c是基础类型，则通过createTextVNode转成Vnode类型
+// 否则就已经是vnode类型了，如果children是一个列表并存在嵌套的情况
+// 则根据nestedIndex去更新它的key
+// 在遍历的过程中，对这 3 种情况都做了如下处理：如果存在两个连续的 text 节点，会把它们合并成一个 text 节点。
 function normalizeArrayChildren (children: any, nestedIndex?: string): Array<VNode> {
   const res = []
   let i, c, lastIndex, last

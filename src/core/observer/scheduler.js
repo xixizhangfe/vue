@@ -85,6 +85,7 @@ function flushSchedulerQueue () {
 
   // do not cache length because more watchers might be pushed
   // as we run existing watchers
+  // 这里每次执行for循环时，都需要去获取queue的长度，是因为在执行watcher过程中，可能会增加新的watcher
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index]
     if (watcher.before) {
@@ -163,6 +164,9 @@ function callActivatedHooks (queue) {
  */
 export function queueWatcher (watcher: Watcher) {
   const id = watcher.id
+  // 如果has中没有这个id，则是undefined;
+  // 执行flushSchedulerQueue函数时，会把has[id]设为null
+  // 所以这里用了 == 而不是 ===
   if (has[id] == null) {
     has[id] = true
     if (!flushing) {

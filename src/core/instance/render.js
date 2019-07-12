@@ -69,6 +69,7 @@ export function renderMixin (Vue: Class<Component>) {
 
   Vue.prototype._render = function (): VNode {
     const vm: Component = this
+    // _parentVnode相当于当前组件的父组件
     const { render, _parentVnode } = vm.$options
 
     if (_parentVnode) {
@@ -83,12 +84,15 @@ export function renderMixin (Vue: Class<Component>) {
     // to the data on the placeholder node.
     vm.$vnode = _parentVnode
     // render self
+    // vnode是当前组件的渲染，所以$vnode和vnode是一种父子关系
     let vnode
     try {
       // There's no need to maintain a stack because all render fns are called
       // separately from one another. Nested component's render fns are called
       // when parent component is patched.
       currentRenderingInstance = vm
+      // render就是用我们在new Vue时传入的render: (h) => {}
+      // 其中h就是这里的vm.$createElement
       vnode = render.call(vm._renderProxy, vm.$createElement)
     } catch (e) {
       handleError(e, vm, `render`)

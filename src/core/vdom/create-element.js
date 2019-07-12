@@ -25,8 +25,9 @@ const ALWAYS_NORMALIZE = 2
 
 // wrapper function for providing a more flexible interface
 // without getting yelled at by flow
-// TODO: 输入参数的含义
+// 输入参数的含义参考下面的_createElement
 // tag: html的标签名，如div
+// createElement是对_createElement的封装，允许传入的参数更加灵活
 export function createElement (
   context: Component,
   tag: any,
@@ -35,8 +36,8 @@ export function createElement (
   normalizationType: any,
   alwaysNormalize: boolean
 ): VNode | Array<VNode> {
+  // 如果data是数组或者基础类型，则认为data是children
   if (Array.isArray(data) || isPrimitive(data)) {
-    // TODO: 这么交换意义何在？并且后面又给normalizationType赋值了
     normalizationType = children
     children = data
     data = undefined
@@ -47,14 +48,15 @@ export function createElement (
   return _createElement(context, tag, data, children, normalizationType)
 }
 
+// _createElement才是真正创建Vnode的函数
 export function _createElement (
-  context: Component,
-  tag?: string | Class<Component> | Function | Object,
-  data?: VNodeData,
-  children?: any,
-  normalizationType?: number
+  context: Component, // 表示VNode的上下文
+  tag?: string | Class<Component> | Function | Object, // 标签，是一个字符串，也可以是Component
+  data?: VNodeData, // VNode的数据
+  children?: any, // 当前VNode的子节点，它是任意类型的，会被规范为标准的VNode数组
+  normalizationType?: number // 表示子节点规范的类型，类型不同规范的方法就不一样，它主要是参考render函数是编译生成的还是用户手写的
 ): VNode | Array<VNode> {
-  // TODO: __ob__是什么
+  // 如果data上有__ob__，表明它已经被观察过了
   if (isDef(data) && isDef((data: any).__ob__)) {
     process.env.NODE_ENV !== 'production' && warn(
       `Avoid using observed data object as vnode data: ${JSON.stringify(data)}\n` +
@@ -64,10 +66,11 @@ export function _createElement (
     return createEmptyVNode()
   }
   // object syntax in v-bind
-  // TODO: data.is又是什么？猜测是：动态组件
+  // is属性是动态组件
   if (isDef(data) && isDef(data.is)) {
     tag = data.is
   }
+  // 如果is属性绑定的值为false，就返回空的vnode
   if (!tag) {
     // in case of component :is set to falsy value
     return createEmptyVNode()
@@ -77,7 +80,6 @@ export function _createElement (
   if (process.env.NODE_ENV !== 'production' &&
     isDef(data) && isDef(data.key) && !isPrimitive(data.key)
   ) {
-    // TODO: __WEEX__又是啥？
     if (!__WEEX__ || !('@binding' in data.key)) {
       warn(
         'Avoid using non-primitive value as key, ' +
@@ -95,12 +97,19 @@ export function _createElement (
     data.scopedSlots = { default: children[0] }
     children.length = 0
   }
+  // 规范化children，因为children是任意类型的，需要规范成标准的Vnode
   if (normalizationType === ALWAYS_NORMALIZE) {
     children = normalizeChildren(children)
   } else if (normalizationType === SIMPLE_NORMALIZE) {
     children = simpleNormalizeChildren(children)
   }
   let vnode, ns
+  // tag可以是string或者component
+  // 这里对tag类型做判断，如果是string，接着判断如果是内置节点，则直接创建一个普通的vnode
+  // 如果是已注册的组件名，则通过createComponent创建一个组件类型的vnode
+  // 否则就创建一个未知的标签的vnode
+  // 如果tag是一个component类型，则直接调用createComponent创建一个组件类型的vnode
+  // createComponent本质上还是返回一个vnode
   if (typeof tag === 'string') {
     let Ctor
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag)
@@ -132,7 +141,6 @@ export function _createElement (
       )
     }
   } else {
-    // TODO: 什么情况下tag不是一个string
     // direct component options / constructor
     vnode = createComponent(tag, data, context, children)
   }

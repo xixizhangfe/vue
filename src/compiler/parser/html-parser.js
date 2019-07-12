@@ -53,8 +53,10 @@ function decodeAttr (value, shouldDecodeNewlines) {
 
 export function parseHTML (html, options) {
   const stack = []
+  // 对于web始终为true
   const expectHTML = options.expectHTML
   const isUnaryTag = options.isUnaryTag || no
+  // 这些tag是：'colgroup,dd,dt,li,options,p,td,tfoot,th,thead,tr,source'
   const canBeLeftOpenTag = options.canBeLeftOpenTag || no
   let index = 0
   let last, lastTag
@@ -104,6 +106,17 @@ export function parseHTML (html, options) {
         }
 
         // Start tag:
+        /*
+          parseStartTag函数就是从开始标签遍历，拿到属性，存入一个对象
+          startTagMatch格式：
+          {
+            tagName: start[1],
+            attrs: [value1, value2,..., start: , end: ],
+            unarySlash: ,
+            start: index,
+            end: ,
+          }
+        */
         const startTagMatch = parseStartTag()
         if (startTagMatch) {
           handleStartTag(startTagMatch)
@@ -184,6 +197,25 @@ export function parseHTML (html, options) {
     html = html.substring(n)
   }
 
+  /* 新建一个match对象，
+    match = {
+      tagName: start[1],
+      attrs: [],
+      start: index
+    }
+    从开始标签的开始位置:
+    1. 将标签名存入match.tagName
+    2. 找到属性、动态属性，存入match.attrs里
+    3. 找到开始标签的结束位置，设置match.unarySlash（一元标签），如果是一元标签，则match.unarySlash有值，否则无值
+    4. 最终返回match对象：
+      match = {
+        tagName: start[1],
+        attrs: [value1, value2,..., start: , end: ],
+        unarySlash: ,
+        start: index,
+        end: ,
+      }
+  */
   function parseStartTag () {
     const start = html.match(startTagOpen)
     if (start) {
@@ -195,6 +227,7 @@ export function parseHTML (html, options) {
       advance(start[0].length)
       let end, attr
       while (!(end = html.match(startTagClose)) && (attr = html.match(dynamicArgAttribute) || html.match(attribute))) {
+        // attr是一个数组
         attr.start = index
         advance(attr[0].length)
         attr.end = index
@@ -213,25 +246,31 @@ export function parseHTML (html, options) {
     const tagName = match.tagName
     const unarySlash = match.unarySlash
 
+    // 对于web，expectHTML始终是true
     if (expectHTML) {
       if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
         parseEndTag(lastTag)
       }
+      // canBeLeftOpenTag包含：
+      // 'colgroup,dd,dt,li,options,p,td,tfoot,th,thead,tr,source'
       if (canBeLeftOpenTag(tagName) && lastTag === tagName) {
         parseEndTag(tagName)
       }
     }
 
+    // 是否是一元标签
     const unary = isUnaryTag(tagName) || !!unarySlash
 
     const l = match.attrs.length
     const attrs = new Array(l)
     for (let i = 0; i < l; i++) {
       const args = match.attrs[i]
+      // 获取value
       const value = args[3] || args[4] || args[5] || ''
       const shouldDecodeNewlines = tagName === 'a' && args[1] === 'href'
         ? options.shouldDecodeNewlinesForHref
         : options.shouldDecodeNewlines
+      // 替换attrs[i]
       attrs[i] = {
         name: args[1],
         value: decodeAttr(value, shouldDecodeNewlines)
@@ -242,11 +281,13 @@ export function parseHTML (html, options) {
       }
     }
 
+    // 如果不是一元标签，就将该标签相关信息入栈
     if (!unary) {
       stack.push({ tag: tagName, lowerCasedTag: tagName.toLowerCase(), attrs: attrs, start: match.start, end: match.end })
       lastTag = tagName
     }
 
+    // 执行start函数，start是在index.js里通过options传入的
     if (options.start) {
       options.start(tagName, attrs, unary, match.start, match.end)
     }

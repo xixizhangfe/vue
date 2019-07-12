@@ -5,6 +5,7 @@ import { parseHTML } from './html-parser'
 import { parseText } from './text-parser'
 import { parseFilters } from './filter-parser'
 import { genAssignmentCode } from '../directives/model'
+// no就是返回false的函数
 import { extend, cached, no, camelize, hyphenate } from 'shared/util'
 import { isIE, isEdge, isServerRendering } from 'core/util/env'
 
@@ -82,12 +83,19 @@ export function parse (
 ): ASTElement | void {
   warn = options.warn || baseWarn
 
-  platformIsPreTag = options.isPreTag || no
-  platformMustUseProp = options.mustUseProp || no
+  // 与平台相关：在platforms/web/util里定义
+  // 都是函数，no也是函数，只不过始终返回false
+  platformIsPreTag = options.isPreTag || no // 是否是pre标签
+  platformMustUseProp = options.mustUseProp || no // TODO: ???
+  // getTagNamespace用于获取命名空间
+  // 如果是svg相关的tag就返回'svg'；如果tag是math，就返回'math'；其他情况无返回值
   platformGetTagNamespace = options.getTagNamespace || no
+  // isReservedTag用于判断是否是html标签、svg标签
   const isReservedTag = options.isReservedTag || no
+  // 如果el.component为true，或者不是ReservedTag，就认为可能是component
   maybeComponent = (el: ASTElement) => !!el.component || !isReservedTag(el.tag)
 
+  // pluckModuleFunction是从所有modules里挑出transformNode方法
   transforms = pluckModuleFunction(options.modules, 'transformNode')
   preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
   postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
@@ -113,6 +121,8 @@ export function parse (
   function closeElement (element) {
     trimEndingWhitespace(element)
     if (!inVPre && !element.processed) {
+      // processElement解析element上的ref、slot、component、指令、其他属性
+      // 然后将相应的值赋给element
       element = processElement(element, options)
     }
     // tree management
@@ -221,6 +231,7 @@ export function parse (
         attrs = guardIESVGBug(attrs)
       }
 
+      // 得到ast元素
       let element: ASTElement = createASTElement(tag, attrs, currentParent)
       if (ns) {
         element.ns = ns
@@ -235,6 +246,7 @@ export function parse (
             return cumulated
           }, {})
         }
+        // 判断属性名字是否有效，如果属性名包含空格、引号、<、>、/、=.这些，则不合法，需警告
         attrs.forEach(attr => {
           if (invalidAttributeRE.test(attr.name)) {
             warn(
@@ -249,6 +261,7 @@ export function parse (
         })
       }
 
+      // 如果tag是style、script，则element.forbidden = true，并给警告
       if (isForbiddenTag(element) && !isServerRendering()) {
         element.forbidden = true
         process.env.NODE_ENV !== 'production' && warn(
@@ -260,6 +273,8 @@ export function parse (
       }
 
       // apply pre-transforms
+      // 执行pre-transforms，其实就是v-model相关的东西
+      // 只有当tag是input时，才会执行，再根据是checkbox、radio、其他等，添加v-for、v-if相关的属性到element上
       for (let i = 0; i < preTransforms.length; i++) {
         element = preTransforms[i](element, options) || element
       }
@@ -277,8 +292,27 @@ export function parse (
         processRawAttrs(element)
       } else if (!element.processed) {
         // structural directives
+        /*
+          把v-for相关的这些属性添加到element上
+          {
+            for: '',
+            alias: '',
+            iterator1: '',
+            iterator2: ''
+          }
+        */
         processFor(element)
+        /*
+         把v-if相关的这些属性添加到element上
+          {
+            if: '',
+            ifConditions: [],
+            else: '',
+            elseIf: '',
+          }
+        */
         processIf(element)
+        // 如果有v-once，添加element.once = true
         processOnce(element)
       }
 
@@ -289,6 +323,8 @@ export function parse (
         }
       }
 
+      // 如果不是一元tag，则将当前元素作为父元素，入栈，然后继续parse其子元素
+      // 如果是一元tag，则执行closeElement
       if (!unary) {
         currentParent = element
         stack.push(element)
@@ -430,23 +466,37 @@ export function processElement (
   element: ASTElement,
   options: CompilerOptions
 ) {
+  // 获取key绑定的表达式exp，如果exp存在，则挂载到element上
+  // 非生产环境下，会对template上的key、transition-group子元素包含v-for给警告
   processKey(element)
 
   // determine whether this is a plain element after
   // removing structural attributes
+  // 如果element上没有key、scopedSlots、attrsList，则plain为true
   element.plain = (
     !element.key &&
     !element.scopedSlots &&
     !element.attrsList.length
   )
 
+  // 拿到ref绑定的值，如果ref存在
+  // el.ref = ref
+  // el.refInFor = checkInFor(el)
   processRef(element)
+  // 判断是否有slot、slot-scope属性，有的话就给element添加slotTarget等属性
   processSlotContent(element)
+  // 判断tag是否是slot，是的话就解析得到slotName并给element添加slotName属性
   processSlotOutlet(element)
+  // 如果有is属性，则element.component就为is的值
+  // 如果inline-template属性值不为空，则element.isInlineTemplate设为true
   processComponent(element)
+  // 执行各个module的transformNode函数
+  // 对于class属性，解析staticClass和classBinding，分别添加到element上
+  // 对于style属性也类似，解析静态样式和动态样式（staticStyle、styleBinding），添加到element上
   for (let i = 0; i < transforms.length; i++) {
     element = transforms[i](element, options) || element
   }
+  // 处理指令、其他属性
   processAttrs(element)
   return element
 }
@@ -455,12 +505,14 @@ function processKey (el) {
   const exp = getBindingAttr(el, 'key')
   if (exp) {
     if (process.env.NODE_ENV !== 'production') {
+      // template上不允许绑定key
       if (el.tag === 'template') {
         warn(
           `<template> cannot be keyed. Place the key on real elements instead.`,
           getRawBindingAttr(el, 'key')
         )
       }
+      // 如果有v-for，且其父元素是transition-group，则警告
       if (el.for) {
         const iterator = el.iterator2 || el.iterator1
         const parent = el.parent
@@ -482,6 +534,7 @@ function processRef (el) {
   const ref = getBindingAttr(el, 'ref')
   if (ref) {
     el.ref = ref
+    // checkInFor(el)返回的是boolean值，就是检查el及其父元素上有没有v-for
     el.refInFor = checkInFor(el)
   }
 }
@@ -489,6 +542,14 @@ function processRef (el) {
 export function processFor (el: ASTElement) {
   let exp
   if ((exp = getAndRemoveAttr(el, 'v-for'))) {
+    /*
+      res = {
+        for: '',
+        alias: '',
+        iterator1: '',
+        iterator2: ''
+      }
+    */
     const res = parseFor(exp)
     if (res) {
       extend(el, res)
@@ -509,14 +570,32 @@ type ForParseResult = {
 };
 
 export function parseFor (exp: string): ?ForParseResult {
+  // 比如exp = '(item,index) in arr'
+  // 则inMatch是
+  /*
+    [
+      "(item,index) in arr",
+      "(item,index)",
+      "arr",
+      index: 0,
+      input: "(item,index) in arr",
+      groups: undefined
+    ]
+  */
   const inMatch = exp.match(forAliasRE)
   if (!inMatch) return
   const res = {}
+  // res.for = "arr"
   res.for = inMatch[2].trim()
+  // alias = "item,index"
   const alias = inMatch[1].trim().replace(stripParensRE, '')
+  // iteratorMatch = [",index", "index", undefined, index: 12, input: "v-for="(item,index", groups: undefined]
   const iteratorMatch = alias.match(forIteratorRE)
+  // 如果exp = "item in arr"，则iteratorMatch为null
   if (iteratorMatch) {
+    // res.alias = "item"
     res.alias = alias.replace(forIteratorRE, '').trim()
+    // res.iterator1 = "index"
     res.iterator1 = iteratorMatch[1].trim()
     if (iteratorMatch[2]) {
       res.iterator2 = iteratorMatch[2].trim()
@@ -524,6 +603,14 @@ export function parseFor (exp: string): ?ForParseResult {
   } else {
     res.alias = alias
   }
+  /*
+    res = {
+      for: '',
+      alias: '',
+      iterator1: '',
+      iterator2: ''
+    }
+  */
   return res
 }
 
@@ -531,6 +618,12 @@ function processIf (el) {
   const exp = getAndRemoveAttr(el, 'v-if')
   if (exp) {
     el.if = exp
+    /* addIfCondition函数就是执行了
+    el.ifConditions.push({
+      exp: exp,
+      block: el
+    })
+    */
     addIfCondition(el, {
       exp: exp,
       block: el
@@ -596,6 +689,12 @@ function processOnce (el) {
 
 // handle content being passed to a component as slot,
 // e.g. <template slot="xxx">, <div slot-scope="xxx">
+/*
+  <template slot="xxx"></template>
+  <template slot-scope="xxx"></template>
+  <div slot="xxx"></div>
+  <div slot-scope="xxx"></div>
+*/
 function processSlotContent (el) {
   let slotScope
   if (el.tag === 'template') {
@@ -665,6 +764,7 @@ function processSlotContent (el) {
         el.slotScope = slotBinding.value || emptySlotScopeToken // force it into a scoped slot for perf
       }
     } else {
+      // 默认的slot
       // v-slot on component, denotes default slot
       const slotBinding = getAndRemoveAttrByRegex(el, slotRE)
       if (slotBinding) {
@@ -695,6 +795,7 @@ function processSlotContent (el) {
         const slotContainer = slots[name] = createASTElement('template', [], el)
         slotContainer.slotTarget = name
         slotContainer.slotTargetDynamic = dynamic
+        // 会把el.chilren放入生成的template的children里
         slotContainer.children = el.children.filter((c: any) => {
           if (!c.slotScope) {
             c.parent = slotContainer
@@ -761,19 +862,26 @@ function processAttrs (el) {
   for (i = 0, l = list.length; i < l; i++) {
     name = rawName = list[i].name
     value = list[i].value
+    // 解析指令
+    // 假设属性是v-bind:age.sync="age"，则name是v-bind:age.sync，value是age
     if (dirRE.test(name)) {
       // mark element as dynamic
       el.hasBindings = true
       // modifiers
+      // modifiers有三种：.prop，.camel, .sync
+      // 对于上面的假设：modifiers={sync: true}
       modifiers = parseModifiers(name.replace(dirRE, ''))
       // support .foo shorthand syntax for the .prop modifier
       if (process.env.VBIND_PROP_SHORTHAND && propBindRE.test(name)) {
         (modifiers || (modifiers = {})).prop = true
         name = `.` + name.slice(1).replace(modifierRE, '')
       } else if (modifiers) {
+        // name是v-bind:age
         name = name.replace(modifierRE, '')
       }
+      // 是否是v-bind
       if (bindRE.test(name)) { // v-bind
+        // name是age
         name = name.replace(bindRE, '')
         value = parseFilters(value)
         isDynamic = dynamicArgRE.test(name)
@@ -797,6 +905,12 @@ function processAttrs (el) {
             name = camelize(name)
           }
           if (modifiers.sync) {
+            /*
+              syncGen结果是`${value}=$event`
+              或者`$set(${res.exp}, ${res.key}, $event)`
+              假设value是obj.val，则syncGen是：
+              $set(obj, val, '$event')
+            */
             syncGen = genAssignmentCode(value, `$event`)
             if (!isDynamic) {
               addHandler(

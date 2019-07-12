@@ -18,6 +18,13 @@ import {
   invokeWithErrorHandling
 } from '../util/index'
 
+// 这个activeInstance是保留当前上下文的Vue实例
+// Vue整个初始化过程是深度遍历的，在实例化子组件过程中，它需要知道当前上下文的Vue实例是什么
+// 并把它作为子组件的父Vue实例
+// 其实prevActiveInstance和vm是一种父子关系
+// 当一个vm实例完成它所有子树的patch或update后，activeInstance会回到它的父实例
+// 这样就能保证createComponentInstanceForVnode整个深度遍历过程中，我们在实例化子组件时
+// 能传入当前子组件的父实例，并在_init过程中，通过 vm.$parent 把这个父子关系保留
 export let activeInstance: any = null
 export let isUpdatingChildComponent: boolean = false
 
@@ -29,20 +36,25 @@ export function setActiveInstance(vm: Component) {
   }
 }
 
+// 在实例化子组件过程中，会先通过initInternalComponent方法合并options，把parent存储到options里，然后才会执行initLifecycle
 export function initLifecycle (vm: Component) {
   const options = vm.$options
 
   // locate first non-abstract parent
-  // TODO: non-abstract parent是干什么的？
+  // keep-alive、transition这两个组件的abstract为true，其他为false
+  // 也就是说keep-alive、transition这两个组件不能作为父组件
   let parent = options.parent
   if (parent && !options.abstract) {
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }
+    // 把vm存储到父实例的$children里
     parent.$children.push(vm)
   }
 
+  // 存储父实例到$parent上
   vm.$parent = parent
+  // 通过parent实现了递归向上查找根实例
   vm.$root = parent ? parent.$root : vm
 
   vm.$children = []
@@ -60,11 +72,16 @@ export function lifecycleMixin (Vue: Class<Component>) {
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
     const prevEl = vm.$el
+    // 先把上一次生成的vnode缓存下来
     const prevVnode = vm._vnode
+    // restoreActiveInstance是一个函数
     const restoreActiveInstance = setActiveInstance(vm)
+    // 把新的vnode赋给vm，这个vnode就是通过render函数得到的，和$vnode是父子关系
+    // 所以_vnode和$vnode是一种父子关系
     vm._vnode = vnode
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
+    // Vue.prototype.__patch__是在platforms/web/runtime/index.js里赋值的，是core/vdom/patch.js里的createPatchFunction方法执行后返回的结果
     if (!prevVnode) {
       // initial render
       vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
@@ -177,11 +194,14 @@ export function mountComponent (
       const endTag = `vue-perf-end:${id}`
 
       mark(startTag)
+      // 得到vnode
+      // _render方法是在instance/render.js中renderMixin里定义的
       const vnode = vm._render()
       mark(endTag)
       measure(`vue ${name} render`, startTag, endTag)
 
       mark(startTag)
+      // 执行_update
       vm._update(vnode, hydrating)
       mark(endTag)
       measure(`vue ${name} patch`, startTag, endTag)
@@ -195,6 +215,9 @@ export function mountComponent (
   // we set this to vm._watcher inside the watcher's constructor
   // since the watcher's initial patch may call $forceUpdate (e.g. inside child
   // component's mounted hook), which relies on vm._watcher being already defined
+  // 在Watcher的构造函数里会定义vm._watcher = this
+  // 把updateComponent传入watcher作为getter，在watcher初始化过程中，会执行getter，也
+  // 就是会执行updateComponent
   new Watcher(vm, updateComponent, noop, {
     before () {
       if (vm._isMounted && !vm._isDestroyed) {
@@ -336,6 +359,7 @@ export function deactivateChildComponent (vm: Component, direct?: boolean) {
 
 export function callHook (vm: Component, hook: string) {
   // #7573 disable dep collection when invoking lifecycle hooks
+  // TODO: pushTarget正常需要传一个watcher进去，但这里没传，所以执行完后当前Dep.target就是undefined，也就阻止了依赖收集？
   pushTarget()
   const handlers = vm.$options[hook]
   const info = `${hook} hook`

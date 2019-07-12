@@ -23,7 +23,7 @@ let uid = 0
  * and fires callback when the expression value changes.
  * This is used for both the $watch() api and directives.
  */
-export default class Watcher {
+ export default class Watcher {
   vm: Component;
   expression: string;
   cb: Function;
@@ -90,6 +90,7 @@ export default class Watcher {
         )
       }
     }
+    // lazy是针对计算属性的，如果是计算属性，则不需要在这里就求值，求值的时机是在外界get这个计算属性时
     this.value = this.lazy
       ? undefined
       : this.get()
@@ -164,6 +165,8 @@ export default class Watcher {
   update () {
     /* istanbul ignore else */
     if (this.lazy) {
+      // lazy模式下，即是computed属性时，只需要把dirty设置true即可，
+      // 这样在获取computed属性时，发现lazy为true，会执行watcher.evaluate方法重新取值。
       this.dirty = true
     } else if (this.sync) {
       this.run()
@@ -207,6 +210,9 @@ export default class Watcher {
    * Evaluate the value of the watcher.
    * This only gets called for lazy watchers.
    */
+  // 只有lazy watcher才会调用，lazy watcher就是computed属性的内部watcher
+  // 执行完get后，会把dirty设置false，表明已经求过值了。
+  // 当这个watcher的依赖有变化后，会通过执行watcher的update方法（在observer/dep.js里的notify方法里，subs[i].update()，这里subs[i]其实就是watcher），再次把dirty变为true
   evaluate () {
     this.value = this.get()
     this.dirty = false
