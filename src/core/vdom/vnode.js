@@ -1,5 +1,28 @@
 /* @flow */
 
+/*
+比如说我现在有这么一个VNode树:
+{
+  tag: 'div'
+  data: {
+    class: 'test'
+  },
+  children: [
+    {
+      tag: 'span',
+      data: {
+        class: 'demo'
+      }
+      text: 'hello,VNode'
+    }
+  ]
+}
+
+那么渲染出来的结果是：
+<div class="test">
+  <span class="demo">hello,VNode</span>
+</div>
+*/
 export default class VNode {
   tag: string | void;
   data: VNodeData | void;
@@ -39,26 +62,48 @@ export default class VNode {
     componentOptions?: VNodeComponentOptions,
     asyncFactory?: Function
   ) {
+    // 当前节点的标签名
     this.tag = tag
+    // 当前节点对应的对象，包含了具体的一些数据信息，是一个VNodeData类型，可以参考VNodeData
+    // 类型中的数据信息
     this.data = data
+    // 当前节点的子节点，是一个数组
     this.children = children
+    // 当前节点的文本
     this.text = text
+    // 当前虚拟节点对应的真实dom节点
     this.elm = elm
+    // 当前节点的命名空间
     this.ns = undefined
+    // 编译作用于
     this.context = context
+    // 函数式组件作用域
     this.fnContext = undefined
+    // 函数式组件选项
     this.fnOptions = undefined
+    // 函数式scope id
     this.fnScopeId = undefined
+    // 节点的key属性，被当做节点的标志，用以优化
     this.key = data && data.key
+    // 组件的options选项
     this.componentOptions = componentOptions
+    // 当前节点对应的组件的实例
     this.componentInstance = undefined
+    // 当前节点的父节点
     this.parent = undefined
+    // 是否为原生HTML或普通文本，innerHTML的时候为true，textContent的时候为false
     this.raw = false
+    // 静态节点标志
     this.isStatic = false
+    // 是否作为根节点插入
     this.isRootInsert = true
+    // 是否为注释节点
     this.isComment = false
+    // 是否为克隆节点
     this.isCloned = false
+    // 是否有v-once指令
     this.isOnce = false
+    // 异步组件工厂函数
     this.asyncFactory = asyncFactory
     this.asyncMeta = undefined
     this.isAsyncPlaceholder = false

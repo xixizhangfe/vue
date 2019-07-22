@@ -54,14 +54,18 @@ const componentVNodeHooks = {
       // 而是在这里执行$mount过程
       // 不考虑服务端渲染情况，这里执行的是child.$mount(undefined, false)
       // 最终执行的是mountComponent（在instance/lifecycle.js里）
-      // 进而执行vm._render()（在instance/render.js里），这个过程会设置$vnode，这是父组件的渲染，vnode和$vnode是一种复父子关系
+      // 进而执行vm._render()（在instance/render.js里），这个过程会设置$vnode，这是父组件的渲染，vnode和$vnode是一种父子关系，$vnode是父
       // 最后执行vm._update()（在instance/lifecycle.js里）
       child.$mount(hydrating ? vnode.elm : undefined, hydrating)
     }
   },
 
+  // prepatch 方法就是拿到新的 vnode 的组件配置以及组件实例，去执行 updateChildComponent 方法
+  // updateChildComponent是在instance/lifecycle.js里定义的
   prepatch (oldVnode: MountedComponentVNode, vnode: MountedComponentVNode) {
+    // 拿到新的 vnode 的组件配置
     const options = vnode.componentOptions
+    // 拿到新的 vnode 的组件实例
     const child = vnode.componentInstance = oldVnode.componentInstance
     updateChildComponent(
       child,

@@ -77,7 +77,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // restoreActiveInstance是一个函数
     const restoreActiveInstance = setActiveInstance(vm)
     // 把新的vnode赋给vm，这个vnode就是通过render函数得到的，和$vnode是父子关系
-    // 所以_vnode和$vnode是一种父子关系
+    // 所以_vnode和$vnode是一种父子关系，$vnode是父
     vm._vnode = vnode
     // Vue.prototype.__patch__ is injected in entry points
     // based on the rendering backend used.
@@ -236,6 +236,8 @@ export function mountComponent (
   return vm
 }
 
+// updateChildComponent 的逻辑也非常简单，由于更新了 vnode，那么 vnode 对应的实例 vm 的
+// 一系列属性也会发生变化，包括占位符 vm.$vnode 的更新、slot 的更新，listeners 的更新，props 的更新等等。
 export function updateChildComponent (
   vm: Component,
   propsData: ?Object,
